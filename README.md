@@ -13,7 +13,7 @@ When using µbialSim, please cite [Popp, D. and F. Centler. 2020. “µbialSim: 
 The latest version of µbialSim can be obtained via git:
 
 ```
-git clone https://git.ufz.de/UMBSysBio/microbialSim.git
+git clone https://github.com/fcentler/microbialSim.git
 ```
 
 ### Prerequisites
@@ -100,7 +100,7 @@ Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c6
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://git.ufz.de/UMBSysBio/microbialSim/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/fcentler/microbialSim/tags). 
 
 ## Version History
 
