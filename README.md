@@ -100,7 +100,7 @@ Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c6
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/fcentler/microbialSim/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/fcentler/microbialSim/tags). Versions prior to v1.1.1 available at [https://git.ufz.de/UMBSysBio/microbialsim/](https://git.ufz.de/UMBSysBio/microbialsim/).
 
 ## Version History
 
