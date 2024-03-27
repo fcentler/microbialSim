@@ -1,7 +1,7 @@
-function [ result ] = dFBASimulator( metabolicModel, reactor, type, solverPars, workerModels)
+function [ result ] = dFBASimulator( metabolicModel, reactor, solverPars, workerModels)
 %DFBASIMULATOR Running a dynamic FBA simulation with µbialSim
-%   Running the dFBA Simulation. For type == 0, the step-wise iteration is
-%   used, type == 1 uses the Matlab ODE solver.
+%   Running the dFBA Simulation. For solverPars.solverType == 0, the step-wise iteration is
+%   used, solverPars.solverType == 1 uses the Matlab ODE solver.
 
 % PREPARE DATA
 
@@ -14,21 +14,29 @@ if isempty(initFile)
     stronglyConsumedFlag=ones(length(reactor.compounds),1)*0; % this flags compounds that in one time step were more consumed than produced leading to time step size reduction to avoid negative concentrations
 else
     myInit = load(initFile);
-    startTime = myInit.recordResult.time;
-    stronglyConsumedFlag = myInit.recordResult.stronglyConsumedFlag;
-    if solverPars.parallel == 1
-        for i = 1:length(myInit.recordResult.metabolicModel)
-            myInit_recordResult_metabolicModel_lastFlux{i} = myInit.recordResult.metabolicModel(i).lastFlux;
-        end
-        spmd
-            for i = 1:length(workerModels)
-                workerModels(i).lastFlux = myInit_recordResult_metabolicModel_lastFlux{labindex+(i-1)*numlabs};
+    if solverPars.readInitialStateResetTime
+        startTime = 0;
+    else
+        startTime = myInit.recordResult.time;
+    end
+    if solverPars.readInitialStateSelection > 0
+        stronglyConsumedFlag = myInit.recordResult.stronglyConsumedFlag;
+        if solverPars.parallel == 1
+            for i = 1:length(myInit.recordResult.metabolicModel)
+                myInit_recordResult_metabolicModel_lastFlux{i} = myInit.recordResult.metabolicModel(i).lastFlux;
+            end
+            spmd
+                for i = 1:length(workerModels)
+                    workerModels(i).lastFlux = myInit_recordResult_metabolicModel_lastFlux{labindex+(i-1)*numlabs};
+                end
+            end
+        else
+            for m = 1:length(metabolicModel)
+                metabolicModel(m).lastFlux = myInit.recordResult.metabolicModel(m).lastFlux;
             end
         end
     else
-        for m = 1:length(metabolicModel)
-            metabolicModel(m).lastFlux = myInit.recordResult.metabolicModel(m).lastFlux;
-        end
+        stronglyConsumedFlag=ones(length(reactor.compounds),1)*0;
     end
 end
 
@@ -52,7 +60,7 @@ for i = 1:length(metabolicModel)
             % original model.
     end
     result.FBA(i).fluxes = zeros(timeSteps, numberOfReactions(i));
-    if isempty(initFile)
+    if isempty(initFile) || solverPars.readInitialStateSelection < 1
         metabolicModel(i).lastFlux=[];
     end
 end
@@ -70,9 +78,39 @@ if isempty(initFile)
     result.compounds(1,:) = reactor.compoundsInit;
     result.biomass(1,:) = reactor.biomassInit;
 else
-    result.time(1) = myInit.recordResult.time;
-    result.compounds(1,:) = myInit.recordResult.compounds;
-    result.biomass(1,:) = myInit.recordResult.biomass;
+   if solverPars.readInitialStateResetTime
+       result.time(1) = 0;
+   else 
+       result.time(1) = myInit.recordResult.time;
+   end
+   if solverPars.readInitialStateSelection ~= 1
+       if solverPars.readInitialStateSelection == 2
+           result.compounds(1,:) = myInit.recordResult.compounds;
+       else % a change of community composition might lead to a different number / order of chemical compounds, careful mapping required
+           result.compounds(1,:) = reactor.compoundsInit;
+	   for i = 1:length(myInit.recordResult.compounds)
+	       found = 0;
+	       for j = 1:length(reactor.compounds)
+		   if strcmp(myInit.recordResult.compoundNames{i}, reactor.compounds(j))
+		       result.compounds(1,j) = myInit.recordResult.compounds(i);
+                       found = 1;
+		       break
+		   end
+	       end
+	       if found ~= 1
+		       error("Compound name from init file not found in current reactor!")
+	       end
+	   end
+
+       end
+   else
+       result.compounds(1,:) = reactor.compoundsInit;
+   end
+   if solverPars.readInitialStateSelection > 0
+       result.biomass(1,:) = myInit.recordResult.biomass;
+   else
+       result.biomass(1,:) = reactor.biomassInit;
+   end
 end
 
 if (solverPars.recordLimitingFluxes == 1)
@@ -81,7 +119,7 @@ end
 
 % DO SIMULATION
 
-if type == 1
+if solverPars.solverType == 1
     ODEresult = result;
     ODEresult.counter = 1;
     for i = 1:length(metabolicModel)
@@ -214,7 +252,7 @@ else
         % concentrations, or as exchanged, strongly consumed compounds
         % deviate too much
 
-        if solveFullFBA == 1
+        if solveFullFBA == 1 && solverPars.augmentedEuler == 1
             % do negative biomass concentrations occur?
             for i = 1:length(metabolicModel)
                 if result.biomass(n+1, i) <= 0 && result.biomass(n, i) ~= 0
@@ -269,24 +307,37 @@ else
             end
             
             if myTimeStepSize ~= solverPars.timeStepSize
-                display('Adjusting time step size')
+		if solverPars.logLevel > 1
+                    fprintf('Adjusting time step size')
+		end
                 solveFullFBA = 0;
                 continue
                 % recalculate results
             end
         end
         
-        % for small biomass and compound concentrations: set to zero
-        for i = 1:numberOfCompounds
-            if abs(result.compounds(n+1, i)) < solverPars.myAccuracy
-                result.compounds(n+1, i) = 0.0;
-            end
-        end
-        for i = 1:length(metabolicModel)
-            if abs(result.biomass(n+1, i)) < solverPars.myBioAccuracy
-                result.biomass(n+1, i) = 0.0;
-            end
-        end
+	if solverPars.augmentedEuler == 1
+		% for small biomass and compound concentrations: set to zero
+		for i = 1:numberOfCompounds
+		    if abs(result.compounds(n+1, i)) < solverPars.myAccuracy
+			result.compounds(n+1, i) = 0.0;
+		    end
+		end
+		for i = 1:length(metabolicModel)
+		    if abs(result.biomass(n+1, i)) < solverPars.myBioAccuracy
+			result.biomass(n+1, i) = 0.0;
+		    end
+		end
+	else
+		% setting negative concentrations to zero
+		for i = 1:numberOfCompounds
+			result.compounds(n+1, i) = max(result.compounds(n+1, i), 0);
+		end
+		for i = 1:length(metabolicModel)
+			result.biomass(n+1, i) = max(result.biomass(n+1, i), 0);
+		end
+		
+	end	
         
         % STORE FLUX DATA
         for i = 1:length(metabolicModel)
@@ -311,7 +362,16 @@ else
         n = n + 1;
         solveFullFBA = 1;
         myTimeStepSize = solverPars.timeStepSize;
-        fprintf('\nTime %f (%2.1f%% done)\n\n', result.time(n), (result.time(n)-result.time(1)) / (solverPars.tend-result.time(1)) * 100);
+	switch solverPars.logLevel
+	    case 1
+                if (floor((result.time(n)-result.time(1)) / (solverPars.tend-result.time(1)) * 100) - floor((result.time(n-1)-result.time(1)) / (solverPars.tend-result.time(1)) * 100)) >= 1
+                    fprintf('Time %f (%2.1f%% done)\n', result.time(n), (result.time(n)-result.time(1)) / (solverPars.tend-result.time(1)) * 100);
+		        end
+	    case 2
+                fprintf('Time %f (%2.1f%% done)\n', result.time(n), (result.time(n)-result.time(1)) / (solverPars.tend-result.time(1)) * 100);
+        otherwise
+            error("unkown logLeve, aborting");
+	end
     end
     if solverPars.recording == 1 % record final step, there are no fluxes then!
         recordFilename = strcat(solverPars.trajectoryFile, '_', int2str(n),'.mat');
@@ -319,6 +379,20 @@ else
     end
 
     % record restart file
+    result.compoundNames = reactor.compounds;
+    result.modelNames = {};
+    for i = 1:length(metabolicModel)
+        if ischar(metabolicModel(i).modelName)
+            metabolicModel(i).modelName = cellstr(metabolicModel(i).modelName);
+        end
+        result.modelNames{i} = metabolicModel(i).modelName;
+        % add reaction names (only tested for COBRAToolbox); expecting all
+        % reversible reactions at end of reaction list!
+        if (solverPars.FBAsolver == 2)
+            result.FBA(i).fluxes = array2table(result.FBA(i).fluxes, "VariableNames", metabolicModel(i).COBRAmodel.rxns(1:(length(metabolicModel(i).COBRAmodel.rxns)-length(metabolicModel(i).reversibleReacIDs))));
+        end
+    end
+    result.modelNames = [result.modelNames{:}];
     recordFilename = strcat(solverPars.trajectoryFile, '_restartInit.mat');
     writeStateToFile(recordFilename, n, result, metabolicModel, stronglyConsumedFlag, 1, solverPars, workerModels);
 end
@@ -423,8 +497,21 @@ for i = 1:length(metabolicModel)
         metabolicModel(i).modelName = cellstr(metabolicModel(i).modelName);
     end
     result.modelNames{i} = metabolicModel(i).modelName;
+    % add reaction names (only tested for COBRAToolbox); expecting all
+    % reversible reactions at end of reaction list!
+    if (solverPars.FBAsolver == 2)
+        result.FBA(i).fluxes = array2table(result.FBA(i).fluxes, "VariableNames", metabolicModel(i).COBRAmodel.rxns(1:(length(metabolicModel(i).COBRAmodel.rxns)-length(metabolicModel(i).reversibleReacIDs))));
+    end
 end
 result.modelNames = [result.modelNames{:}];
+
+% compute final derivatives
+for i = 1:length(metabolicModel)
+    result.finalGradientX(i) = (result.biomass(end, i) - result.biomass(end-1, i)) / (result.time(end) - result.time(end-1)); % gDW/l/h
+end
+for i = 1:numberOfCompounds
+    result.finalGradientC(i) = (result.compounds(end, i) - result.compounds(end-1, i)) / (result.time(end) - result.time(end-1)); % mM/h
+end
 
 if solverPars.parallel == 1
     p = gcp('nocreate');

@@ -18,7 +18,7 @@ git clone https://github.com/fcentler/microbialSim.git
 
 ### Prerequisites
 
-µbialSim is implemented in Matlab and requires the COBRA Toolbox and/or CellNetAnalyzer for FBA computations. The examples make use of the former.
+µbialSim is implemented in Matlab and requires the COBRA Toolbox and/or CellNetAnalyzer for FBA computations. The examples make use of the former. As numerical solver, glpk, Gurobi and CPLEX can be used.
 
 Information on the COBRA Toolbox is available here:
 
@@ -30,16 +30,19 @@ https://www2.mpi-magdeburg.mpg.de/projects/cna/cna.html
 
 ### Installing
 
-For using the COBRA Toolbox, its location must be specified in the main simulator file `microbialSimMain.m` in lines 87ff, note that multiple locations can be specified, easing operation in different environments:
+For using the COBRA Toolbox, its location must be specified in the main simulator file `microbialSimMain.m` in lines 115ff, note that multiple locations can be specified, easing operation in different environments:
 
 ```
 placesToLookForCobraToolbox = {
-            'C:\Users\centlerf\cobratoolbox', ...
-            'Y:\Home\centlerf\Projects\MetabolicModeling\FBATools\cobratoolbox', ...
+            'C:/cobratoolbox', ...
+            'C:/Users/username/cobratoolbox', ...
             '/data/cobratoolbox' ...
-            '..\cobratoolbox'
+            '../cobratoolbox' ...
+            '/Users/username/cobratoolbox'
             };
 ```
+
+If simulations are to be defined by external YAML files (see `config.yaml` for an example), [this Matlab yaml parser](https://github.com/MartinKoch123/yaml?tab=readme-ov-file) is required and must be copied into subdirectory `yaml` within the µbialSim directory. Simualtions can then be started as `microbialSimMain("config.yaml")`.
 
 ## Running the Examples
 
@@ -67,20 +70,25 @@ The FBA models are taken from *J. J. Hamilton, M. Calixto Contreras, and J. L. R
 
 ### Example 3
 
-Simulating batch growth of an eight species human gut microbiome (SIHUMIx consortium). Models are taken from the AGORA model collection containing 773 human gut microbiome species. Running this simulation first requires the unpacking of the file `AGORA-1.01-Western-Diet.zip` containing the AGORA models. The simulation can then be started by: 
+Simulating batch growth of an eight species human gut microbiome (SIHUMIx consortium). Models are taken from the AGORA1 model collection containing 773 human gut microbiome species. Running this simulation first requires the unpacking of the file `AGORA-1.01-Western-Diet.zip` containing the AGORA models. The simulation can then be started by: 
 
 ```
 microbialSimMain(3)
 ```
 
-Any other subset of AGORA species, and even all 773 species together can be simulated. Note that for running the simulation with all 773 species, 64GB of RAM are necessary (loading models as a Matlab data structure after the initial loading as SBML files cuts memory demand in half). For complex microbiomes, consider deactivating the option to record limiting fluxes `recordLimitingFluxes` for faster simulation times. Speed can considerably be further improved by setting the parameter `maxDeviation` to `inf` in `microbialSimMain.m` at the expense of numerical accuracy.
+Any other subset of AGORA species, and even all 773 species together can be simulated. Models can either be selected by index in their alphabetical order, or by their filename. Note that for running the simulation with all 773 species, 64GB of RAM are necessary (loading models as a Matlab data structure after the initial loading as SBML files cuts memory demand in half). For complex microbiomes, consider deactivating the option to record limiting fluxes `recordLimitingFluxes` for faster simulation times. Speed can considerably be further improved by setting the parameter `maxDeviation` to `inf` in `microbialSimMain.m` at the expense of numerical accuracy.
 
 The FBA models stem from *S. Magnúsdóttir et al., “Generation of genome-scale metabolic reconstructions for 773 members of the human gut microbiota,” Nat. Publ. Gr., vol. 35, no. 1, 2016.*
 
+Models of the AGORA2 collection containing 7,302 models can be loaded as well. Individual models need to be [acquired from here](https://www.vmh.life/files/reconstructions/AGORA2/) and should be copied to the directory `models/AGORA-2.01-models`. Note that uptake constraints are unlimited in these models and require manual curation.
+
+For chemostat simulations, the compound mix of the influx can be defined by a died file, as [obtainable from here](https://www.vmh.life/#nutrition). These files should be stored in the directory `models/diets`.
+
+
 ### Simulation Output
 
-Two files are generated at the end of the simulation with a date and time stamp in the filename indicating the start of the simulation. Both files hold Matlab data structures. The file `*_restartInit.mat` records the final state of the simulator and can be used as the initial conditions to continue the simulation in a subsequent run of µbialSim. The other file holds the simulated trajectory in the Matlab structure trajectory. The fields `time`, `compounds`, `biomass`, and `mu` hold the time, compound concentrations, biomass concentrations, and specific growth rates for each integration step. The field `FBA` stores data for each FBA model, including the temporal dynamics of all metabolic fluxes, and the mass balance for all exchange reactions. The field `limitingFluxes` stores over time those reactions, for which thecurrent flux is identical to its current flux boundary (upper or lower). These are typically the growth-limiting fluxes.
-Additionally, once the simulation is finished, the trajectory is automatically visualized in three Matlab figures detailing the evolution of compound and biomass concentrations as well as exchange fluxes for all species. To visualize only the most abundant microbial species or compounds, the function `plotTopBiomassCompounds()` can be used.
+Three files are generated at the end of the simulation with a date and time stamp in the filename indicating the start of the simulation. All files hold Matlab data structures. The file `*_restartInit.mat` records the final state of the simulator and can be used as the initial conditions to continue the simulation in a subsequent run of µbialSim. The other file holds the simulated trajectory in the Matlab structure trajectory. The fields `time`, `compounds`, `biomass`, and `mu` hold the time, compound concentrations, biomass concentrations, and specific growth rates for each integration step. The field `FBA` stores data for each FBA model, including the temporal dynamics of all metabolic fluxes, and the mass balance for all exchange reactions. The field `limitingFluxes` stores over time those reactions, for which the current flux is identical to its current flux boundary (upper or lower). These are typically the growth-limiting fluxes. If only the evolution of biomass and compound concentrations are of interest, a simplified trajectory is saved to the file `*_dynamics.mat`. This file only records the evolution of concentrations and specific growth rates.
+Additionally, once the simulation is finished, the trajectory is automatically visualized in Matlab figures detailing the evolution of compound and biomass concentrations as well as exchange fluxes for all species. To visualize only the most abundant microbial species or compounds, the function `plotTopBiomassCompounds()` can be used.
 
 To inspect compound consumption and production rates at a given time, the function `getCmpndExchangeTable()` can be used, filtered (`filterCmpndExchangeTable()`), and saved to file as an adjacency matrix (`writeCmpndExchangeTableToFile()`) for subsequent visualization as a network.
 
@@ -104,16 +112,17 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Version History
 
+* v1.2.0 - March 2024 - support for loading AGORA2 models, simulation parameters can now alternatively be set in an external YAML file, substrate concentration in inflow for chemostat simulations can be defined by external file, simplified trajectory files, support for numerical solvers Gurobi and CPLEX added, improved flexibility when restarting simulations, introduction of log levels 
 * v1.1.1 - April 2020 - new plot routine for visualizing the most abundant microbial species and compounds only, new parameter for the numerical solver, minor bugfixes
 * v1.1.0 - January 2020 - improved parallel performance, new function to estimate maximal uptake flux required to achieve given specific growth rate, new functions to collect, filter, and write compound exchange within the community at a given simulation time point, new feature to record growth-limiting compounds for each species during the simulation, bugfixes
 * v1.0.0 - July 2019 - initial version
 
 ## Authors
 
-* **Florian Centler**, UFZ - Helmholtz Centre for Environmental Research, Leipzig, Germany
+* **Florian Centler**, University of Siegen, Faculty of Life Sciences, Siegen, Germany
 * **Denny Popp**, UFZ - Helmholtz Centre for Environmental Research, Leipzig, Germany
 
-Contact: florian.centler@ufz.de
+Contact: florian.centler@uni-siegen.de
 
 ## License
 

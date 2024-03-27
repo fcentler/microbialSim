@@ -5,6 +5,8 @@ function [success] = writeStateToFile(recordFilename, n, result, metabolicModel,
     recordResult.compounds = result.compounds(n,:);
     recordResult.biomass = result.biomass(n,:);
     recordResult.stronglyConsumedFlag = stronglyConsumedFlag;
+    recordResult.compoundNames = result.compoundNames;
+    recordResult.modelNames = result.modelNames;
     if solverPars.parallel == 1
         for i = 1:numel(workerModels)
             tmpWorker = workerModels{i};

@@ -7,12 +7,16 @@ function [ status ] = integrator_output(t, y, flag, metabolicModel, solverPars)
     switch flag
         case 'init'
             t = t(1);     % first time this function is called, t is [0 tmax](?)
-            disp('Starting.');
+	    if solverPars.logLevel > 1
+                fprintf('Starting.');
+	    end
             status = 0;
             return
         case 'done'
             t = solverPars.tend; % last time this function is called, t is empty
-            disp('Done.');
+	    if solverPars.logLevel > 1
+                fprintf('Done.');
+	    end
             status = 0;
             return
     end
@@ -45,8 +49,10 @@ function [ status ] = integrator_output(t, y, flag, metabolicModel, solverPars)
         ODEresult.mu(n, i) = ODEresult.FBA(i).fluxes(n, metabolicModel(i).biomassReac);
     end
 
-    fprintf('\nTime %f (%2.1f%% done)\n\n', t(1), t(1) / solverPars.tend * 100);
-    
+    if solverPars.logLevel > 0
+        fprintf('\nTime %f (%2.1f%% done)\n\n', t(1), t(1) / solverPars.tend * 100);
+    end
+
     for k = 2:size(t, 2)
         n = ODEresult.counter;
         ODEresult.counter = ODEresult.counter + 1;
@@ -64,8 +70,14 @@ function [ status ] = integrator_output(t, y, flag, metabolicModel, solverPars)
 %             ODEresult.mu(n, i) = -1;
 %         end
         
-        
-        fprintf('\n(Time %f (%2.1f%% done))\n\n', t(k), t(k) / solverPars.tend * 100);
+       switch solverPars.logLevel
+           case 1
+	           if (floor(t(k) / solverPars.tend * 100) - floor(t(k-1) / (solverPars.tend * 100))) > 1
+                   fprintf('(Time %f (%2.1f%% done))\n', t(k), t(k) / solverPars.tend * 100);
+               end
+	       case 2
+               fprintf('(Time %f (%2.1f%% done))\n', t(k), t(k) / solverPars.tend * 100);
+       end
     end
     
     status = 0;

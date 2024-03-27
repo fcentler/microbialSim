@@ -14,9 +14,13 @@ numberOfReactions = length(metabolicModel.coupledReactions.vmax);
 metabolicModel.coupledReactions.ks = zeros(numberOfReactions, 1);
 [ dbio, dcompound, flux, success ] = getDy(metabolicModel, ones(1,length(reactor.compounds)), -1, solverPars);
 if success == true
-    fprintf("Growth rate under original model uptake conditions = %d 1/h.\n", flux(metabolicModel.biomassReac))
+    if solverPars.logLevel > 1
+        fprintf("Growth rate under original model uptake conditions = %d 1/h.\n", flux(metabolicModel.biomassReac))
+    end
 else
-    fprintf("Original conditions do not allow for growth.\n");
+    if solverPars.logLevel > 1
+        fprintf("Original conditions do not allow for growth.\n");
+    end
 end
 
 %% check if selected compound is required for growth; if not: adjust all
@@ -28,10 +32,14 @@ metabolicModel.coupledReactions.vmax(coupledReactionID) = 0;
 [ dbio, dcompound, flux, success ] = getDy(metabolicModel, ones(1,length(reactor.compounds)), -1, solverPars);
 if success == true
     growthLimiting = false;
-    fprintf("Selected compound not required for growth, adjusting all flux limits together.\n");
-    fprintf("Check if uncoupled (and coupled) exchange reactions still contain\ngrowth-relevant fluxes (such as c-sources).\n")
+    if solverPars.logLevel > 1
+        fprintf("Selected compound not required for growth, adjusting all flux limits together.\n");
+        fprintf("Check if uncoupled (and coupled) exchange reactions still contain\ngrowth-relevant fluxes (such as c-sources).\n")
+    end
 else
-    fprintf("Selected compound is required for growth.\n");
+    if solverPars.logLevel > 1
+        fprintf("Selected compound is required for growth.\n");
+    end
 end
 
 if growthLimiting == true
@@ -98,7 +106,9 @@ while currentMu < targetMu && vmax < 1000.0
     end
 end
 if currentMu < targetMu
-    fprintf('Target µ (%d) not reachable, just reached %d 1/h\n', targetMu, currentMu);
+    if solverPars.logLevel > 1
+        fprintf('Target µ (%d) not reachable, just reached %d 1/h\n', targetMu, currentMu);
+    end
     vmax = -1;
     return
 end
@@ -143,7 +153,9 @@ while solvable == false
 end
 
 if flux(metabolicModel.biomassReac) > targetMu
-    fprintf('Failed to find proper lower bound. Chose smaller subStepSize\n');
+    if solverPars.logLevel > 1
+        fprintf('Failed to find proper lower bound. Chose smaller subStepSize\n');
+    end
     vmax = -1;
     return
 end
@@ -189,7 +201,9 @@ while abs(currentMu - targetMu) > solverPars.minimalGrowth
             highBound = vmax;
         end
     else
-        fprintf('Fail in approaching target µ!\n');
+        if solverPars.logLevel > 1
+            fprintf('Fail in approaching target µ!\n');
+	end
         vmax = -1;
         return
     end
@@ -197,36 +211,42 @@ end
 [exchangeFluxes, limitedFluxesIDs] = getExchangeFluxes(metabolicModel, flux, solverPars, ones(1,length(reactor.compounds)));
 
 if growthLimiting == true
-    fprintf('For getting µ = %d 1/h, choose vmax = %d mmol/gDW/h \nfor the %i th coupled reaction.\n', targetMu, vmax, coupledReactionID);
+    if solverPars.logLevel > 1
+        fprintf('For getting µ = %d 1/h, choose vmax = %d mmol/gDW/h \nfor the %i th coupled reaction.\n', targetMu, vmax, coupledReactionID);
+    end
 else
-    fprintf('Applying a factor of %d to all uptake limits results in µ = %d 1/h.\n', vmax, targetMu);
-    fprintf('vmax values for coupled reactions:\n');
-    for i = 1:numberOfReactions
-        fprintf('%i: %d\n', i, metabolicModel.coupledReactions.vmax(i));
+    if solverPars.logLevel > 1
+        fprintf('Applying a factor of %d to all uptake limits results in µ = %d 1/h.\n', vmax, targetMu);
+        fprintf('vmax values for coupled reactions:\n');
+        for i = 1:numberOfReactions
+            fprintf('%i: %d\n', i, metabolicModel.coupledReactions.vmax(i));
+        end
     end
 end
 
-fprintf('\nFluxes at limit:\n');
-for i = 1:length(limitedFluxesIDs)
-    switch metabolicModel.FBAsolver
-        case 1
-            fprintf("ID %i (%s): %d ", limitedFluxesIDs(i), metabolicModel.CNAmodel.reacID(limitedFluxesIDs(i),:), flux(limitedFluxesIDs(i)));
-        case 2
-            fprintf("ID %i (%s): %d ", limitedFluxesIDs(i), metabolicModel.COBRAmodel.rxnNames{limitedFluxesIDs(i)}, flux(limitedFluxesIDs(i)));
-        otherwise
-            error('In estimateVmax: unknown FBA solver')
-    end
-    if ismember(limitedFluxesIDs(i), metabolicModel.exchangeReactions.ReacID)
-        fprintf("(Exchange reaction, ");
-        if ismember(limitedFluxesIDs(i), metabolicModel.coupledReactions.ReacID)
-            fprintf("coupled)");
-        else
-            fprintf("uncoupled)");
+if solverPars.logLevel > 1
+    fprintf('\nFluxes at limit:\n');
+    for i = 1:length(limitedFluxesIDs)
+        switch metabolicModel.FBAsolver
+            case 1
+                fprintf("ID %i (%s): %d ", limitedFluxesIDs(i), metabolicModel.CNAmodel.reacID(limitedFluxesIDs(i),:), flux(limitedFluxesIDs(i)));
+            case 2
+                fprintf("ID %i (%s): %d ", limitedFluxesIDs(i), metabolicModel.COBRAmodel.rxnNames{limitedFluxesIDs(i)}, flux(limitedFluxesIDs(i)));
+            otherwise
+                error('In estimateVmax: unknown FBA solver')
         end
+        if ismember(limitedFluxesIDs(i), metabolicModel.exchangeReactions.ReacID)
+            fprintf("(Exchange reaction, ");
+            if ismember(limitedFluxesIDs(i), metabolicModel.coupledReactions.ReacID)
+                fprintf("coupled)");
+            else
+                fprintf("uncoupled)");
+            end
+        end
+        fprintf('\n');
     end
     fprintf('\n');
 end
-fprintf('\n');
 
 %likely not really necessary; just for peace of mind
 metabolicModel.coupledReactions.vmax = orig.vmax;

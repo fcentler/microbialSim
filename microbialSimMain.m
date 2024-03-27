@@ -8,16 +8,33 @@ function [ trajectory ] = microbialSimMain(scenarioID)
 %   scenarioID == 3: 8-species human gut consortium (SIHUMIx) with models taken from the
 %   collection of 773 human gut microbiome species (Magnusdottir et al., 2017)
 
+if isstring(scenarioID)
+    cd("yaml/");
+    solverPars = yaml.loadFile(strcat('../', scenarioID));
+    cd("../");
+    fileSuffix = scenarioID;
+    scenarioID = 100;
+else
+
 %% PARAMETER
 solverPars.FBAsolver = 2; % Select FBA solver, set to 1 for CellNetAnalyzer
 %   and to 2 for COBRA Toolbox
-solverPars.tend = 1; % Simulation end time (in hours)
+solverPars.COBRAsolver = 1; % Choose COBRA Toolbox solver, set to 1 for
+%   glpk, 2 for CPLEX, and 3 for Gurobi
+solverPars.modelDir = ''; % specify directory with SBML models
+solverPars.diet = ''; % specify filename with diet from VMH
+solverPars.tend = 100; % Simulation end time (in hours)
 solverPars.timeStepSize=0.002; % Default simulation step size (in hours)
 solverPars.saveLoadedModelsToFile = 0; % Set to 1 to save loaded SBML
 %   models in Matlab format for speeding up subsequent simulation runs.
 %   Models are stored in "loadedModels<date><time>.mat".
 solverPars.readInitialStateFrom = ''; % Provide trajectory file name to
 %   continue a previous simulation run ("simulatedTrajectory_*.mat_restartInit.mat").
+solverPars.readInitialStateSelection = 2; % What data to read from file?
+%   '0': only chemical compounds, '1': only biomass, '2': both; currently, only '0'
+%   allows for a change in community composition on subsequent runs
+solverPars.readInitialStateResetTime = 0; % Read time from file (0) or
+%   set time to 0 (1)
 solverPars.parallel = 0; % Set to 1 to compute FBA models in parallel using
 %   Matlab's spmd environment
 solverPars.maxWorkers = 12; % maximum number of workers to recruit for
@@ -33,11 +50,15 @@ solverPars.minimalGrowth = 1e-6; % If predicted growth rate is below this
 %   threshold, assume that no growth is possible
 solverPars.solverType = 0; % Set to 0 for augmented forward Euler method,
 %   1 for direct approach (using Matlab's ODE solver)
-solverPars.doMassBalance = 1; % Set to 0 to avoid calculation of mass balances
+solverPars.doMassBalance = 0; % Set to 0 to avoid calculation of mass balances
 %   for all exchange fluxes at the end of the simulation (can take a long
 %   time)
+solverPars.logLevel = 1; % How much info to print to screen; 0: no output, 1:
+%   only printing progress in percent, 2: print full information
 
-% Only used if augmented forward Euler method is used:
+% Only used if forward Euler method is used:
+solverPars.augmentedEuler = 1; % choose 1 for time step adjustment, 0 for
+% fixed time steps
 solverPars.myAccuracy = 1e-15; % Compound concentrations below this value
 %   are evaluated to be zero.
 solverPars.myBioAccuracy = 1e-15; % Biomass concentrations below this 
@@ -52,7 +73,7 @@ solverPars.maxDeviation = 5.0; % For compounds of high demand, reduce
 solverPars.biomassReductionFactor = 2.0; % If negative biomass concentrations
 %   occur, reduce time step size such that at new time step, biomass
 %   becomes old biomass divided by this factor.
-solverPars.recordLimitingFluxes = 1; % record during the simulation which
+solverPars.recordLimitingFluxes = 0; % record during the simulation which
 %   fluxes are at their boundary
 solverPars.recording = 0; % Set to 1 to save reactor state at each iteration
 %   to separate files.
@@ -70,14 +91,15 @@ solverPars.nonNegative = 0; % Set to 1 to activate NonNegative option for
 solverPars.relTol = 1e-9; % Set relative tolerance
 solverPars.absTol = 1e-9; % Set absolute tolerance
 
-% Filenames
 fileSuffix = strrep(char(datetime('now')),':', '_');
+end
+% Filenames
 modelFile = strcat('loadedModels_', fileSuffix, '.mat');
 solverPars.trajectoryFile = strcat('simulatedTrajectory_', fileSuffix, '.mat');
 
 for name = {modelFile, solverPars.trajectoryFile}
-    if exist(char(name), 'file') == 2
-        error(strcat('Filename ', char(name), ' already exists. Aborting.'))
+    if exist(string(name), 'file') == 2
+        error(strcat('Filename ', char(string(name)), ' already exists. Aborting.'))
     end
 end
 %% FBA TOOL BOX SETUP
@@ -87,33 +109,40 @@ switch solverPars.FBAsolver
     case 1
         returnValue = initCNA;
     case 2
-    if 2 ~= exist('optimizeCbModel')
-        currDir = pwd;
-        % ADD PATH TO YOUR COBRA INSTALLATION HERE (REPLACE OR APPEND AT END OF LIST)
-        placesToLookForCobraToolbox = {
-            'W:/cobratoolbox', ...
-            'C:/Users/centlerf/cobratoolbox', ...
-            'Y:/Home/centlerf/Projects/MetabolicModeling/FBATools/cobratoolbox', ...
-            '/data/cobratoolbox' ...
-            '../cobratoolbox' ...
-            '/Users/flori/cobratoolbox'
-            };
+        if 2 ~= exist('optimizeCbModel')
+            currDir = pwd;
+            % ADD PATH TO YOUR COBRA INSTALLATION HERE (REPLACE OR APPEND AT END OF LIST)
+            placesToLookForCobraToolbox = {
+                'C:/cobratoolbox', ...
+                'C:/Users/username/cobratoolbox', ...
+                '/data/cobratoolbox' ...
+                '../cobratoolbox' ...
+                '/Users/username/cobratoolbox'
+                };
 
-        for i = 1:length(placesToLookForCobraToolbox)
-            if 7 == exist(char(placesToLookForCobraToolbox(i)), 'dir') % directory exists
-                break
+            for i = 1:length(placesToLookForCobraToolbox)
+                if 7 == exist(char(placesToLookForCobraToolbox(i)), 'dir') % directory exists
+                    break
+                end
+                if i == length(placesToLookForCobraToolbox)
+                    error('COBRA Toolbox not found. Aborting.')
+                end
             end
-            if i == length(placesToLookForCobraToolbox)
-                error('COBRA Toolbox not found. Aborting.')
-            end
+
+            cd(char(placesToLookForCobraToolbox(i)))
+            initCobraToolbox(false); % no updating
+            cd(currDir);
         end
-        
-        cd(char(placesToLookForCobraToolbox(i)))
-        initCobraToolbox(false); % no updating
-        cd(currDir);
-    else
-        changeCobraSolver('glpk', 'LP');
-    end
+        switch solverPars.COBRAsolver
+            case 1
+                changeCobraSolver('glpk', 'LP');
+            case 2
+                changeCobraSolver('cplexlp', 'LP');
+            case 3
+                changeCobraSolver('gurobi', 'LP');
+            otherwise
+                error('COBRA solver unknown!')
+        end
 
     otherwise
         error('FBA solver type unkown!')
@@ -157,18 +186,28 @@ switch scenarioID
         
         reactor = reactorDefinition_synProp;
     case 3 % 773 gut microbiome
-        solverPars.tend = 1.0;
-        solverPars.timeStepSize = 0.002;
-
+        solverPars.tend = 0.1;
+        solverPars.timeStepSize = 0.02;
+		% Using AGORA1 models
+		solverPars.agoraVersion = 1;
+		solverPars.modelDir = 'models/AGORA-1.01-Western-Diet/';
         % consider all species
         %speciesToConsider = 1:773;
 
         % consider only selected species
         %speciesToConsider = [1, 2, 3];
-        speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482];
+		%speciesToConsider = ["Abiotrophia_defectiva_ATCC_49176.xml", "Acidaminococcus_fermentans_DSM_20731.xml", "Acidaminococcus_intestini_RyC_MR95.xml"];
         
-        [models, externalCompounds] = prepareFBAmodel_773Agora(speciesToConsider, 'models/AGORA-1.01-Western-Diet/', solverPars.FBAsolver);
-        solverPars.saveLoadedModelsToFile = 1; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
+		speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482];
+		
+		% Using AGORA2 models
+		%solverPars.agoraVersion = 2;
+		%solverPars.modelDir = 'models/AGORA-2.01-models/';
+		%speciesToConsider = [1, 2, 3];
+		%speciesToConsider = ["Abiotrophia_defectiva_ATCC_49176.xml", "Acaricomes_phytoseiuli_DSM_14247.xml", "Acaryochloris_marina_MBIC11017.xml"];
+		%solverPars.diet = 'models/diets/Mediterranean/fluxes.tsv';
+        [models, externalCompounds] = prepareFBAmodel_Agora(solverPars.agoraVersion, speciesToConsider, solverPars.modelDir, solverPars.FBAsolver);
+        %solverPars.saveLoadedModelsToFile = 1; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
         %load('./loadedModels_26-Mar-2019 11_34_00.mat');
 
         solverPars.readInitialStateFrom = '';
@@ -184,7 +223,56 @@ switch scenarioID
             end
         end
 
-        reactor = reactorDefinition_773Agora(length(models), externalCompounds);
+        reactor = reactorDefinition_Agora(length(models), externalCompounds, solverPars.diet);
+
+ case 4 % 9 species gut microbiome
+        solverPars.tend = 120.0;
+        solverPars.timeStepSize = 0.02;
+		solverPars.agoraVersion = 1;
+		solverPars.modelDir = 'models/AGORA-1.01-Western-Diet/';
+		solverPars.diet = '';
+        % consider all species
+        %speciesToConsider = 1:773;
+        % consider only selected species
+        %speciesToConsider = [1, 2, 3];
+        speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482, 256];
+        
+        %[models, externalCompounds] = prepareFBAmodel_773Agora(speciesToConsider, 'models/AGORA-1.01-Western-Diet/', solverPars.FBAsolver);
+        %solverPars.saveLoadedModelsToFile = 0; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
+        %load('./loadedModels_27-Apr-2022 14_06_59.mat');
+        solverPars.readInitialStateFrom = '';
+        solverPars.parallel = 0;
+        solverPars.recording = 0;
+        
+        % set KS to nonzero
+        ksvalue = 0.01;
+        for i = 1:length(models)
+            for j = 1:length(models(i).coupledReactions.ks)
+                models(i).coupledReactions.ks(j) = ksvalue;
+            end
+        end
+
+        reactor = reactorDefinition_Agora(length(models), externalCompounds, solverPars.diet);
+		
+    case 100 % simulation parameters read from YAML file
+        disp("Reading simulation parameters from YAML.")
+        if isstring(solverPars.speciesToConsider{1})
+            speciesToConsider = string(solverPars.speciesToConsider);
+        else
+	        speciesToConsider = cell2mat(solverPars.speciesToConsider);
+        end
+        [models, externalCompounds] = prepareFBAmodel_Agora(solverPars.agoraVersion, speciesToConsider, solverPars.modelDir, solverPars.FBAsolver);
+        %load('./loadedModels_26-Mar-2019 11_34_00.mat');
+        
+        % set KS to nonzero
+        ksvalue = 0.01;
+        for i = 1:length(models)
+            for j = 1:length(models(i).coupledReactions.ks)
+                models(i).coupledReactions.ks(j) = ksvalue;
+            end
+        end
+
+        reactor = reactorDefinition_Agora(length(models), externalCompounds, solverPars.diet);
 
     otherwise
         error('Unknown model scenario. Aborting')
@@ -198,7 +286,7 @@ if solverPars.parallel == 1
     parfor i = 1:length(models)
         changeCobraSolver(solver, 'LP', 1, -1);
     end
-    
+  
     % each worker gets his share of FBA models
     % (memory requirements could be halfed if models were directly created
     % within workers)
@@ -210,18 +298,20 @@ end
 
 if solverPars.saveLoadedModelsToFile == 1
     switch scenarioID
-        case 3
-            save(modelFile, 'models', 'externalCompounds', '-v7.3'); % for > 2GB
-        otherwise
+        case 1
             save(modelFile, 'models', '-v7.3'); % for > 2GB
+        case 2
+            save(modelFile, 'models', '-v7.3'); % for > 2GB
+        otherwise
+			save(modelFile, 'models', 'externalCompounds', '-v7.3'); % for > 2GB
     end
 end
 
 tic
 if solverPars.parallel == 1
-    trajectory = dFBASimulator(models, reactor, solverPars.solverType, solverPars, workerModels);
+    trajectory = dFBASimulator(models, reactor, solverPars, workerModels);
 else
-    trajectory = dFBASimulator(models, reactor, solverPars.solverType, solverPars, 0);
+    trajectory = dFBASimulator(models, reactor, solverPars, 0);
 end
 elapsedSeconds = toc;
 elapsedHours = elapsedSeconds / 60 / 60;
@@ -229,23 +319,25 @@ elapsedHours = elapsedSeconds / 60 / 60;
 save(solverPars.trajectoryFile, 'trajectory', 'reactor', 'elapsedHours', '-v7.3');
 
 %% plotting
-% Quick-n-dirty-Plot
-figure
-subplot(2,1,1)
-plot(trajectory.time, trajectory.biomass)
-legend(trajectory.modelNames, 'Interpreter', 'none')
-title('Biomass')
-xlabel('Time (hours)')
-ylabel('Concentration (gDW/L)')
-subplot(2,1,2)
-plot(trajectory.time, trajectory.compounds)
-legend(trajectory.compoundNames, 'Interpreter', 'none')
-title('Compounds')
-xlabel('Time (hours)')
-ylabel('Concentration (mmol/L)')
 
 plotTrajectoryCmp(trajectory, 'Simulation')
 plotExchangeFluxes(trajectory)
+
+% Store minimal trajectory for plotting
+dynamics.time = trajectory.time;
+dynamics.biomass = trajectory.biomass;
+dynamics.compounds = trajectory.compounds;
+dynamics.mu = trajectory.mu;
+dynamics.modelNames = trajectory.modelNames;
+dynamics.compoundNames = trajectory.compoundNames;
+myReactor.flowRate = reactor.flowRate;
+
+trajectory = dynamics;
+reactor = myReactor;
+
+save(strcat(solverPars.trajectoryFile, '_dynamics.mat'), 'trajectory', 'reactor', '-v7.3');
+
+plotTrajectoryDynamics(trajectory, reactor)
 
 if solverPars.parallel == 1
    %delete(gcp('nocreate'))

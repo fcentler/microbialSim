@@ -5,7 +5,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
 
     % Check if species still alive
     if biomass == 0
-        disp('Species died out.');
+	if solverPars.logLevel > 1
+            fprintf('Species died out.');
+	end
         switch metabolicModel.FBAsolver
             case 1
                 flux = zeros(length(metabolicModel.CNAmodel.objFunc), 1);
@@ -66,7 +68,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
     end
     
     if success == false || flux(metabolicModel.biomassReac) < solverPars.minimalGrowth
-        disp('No growth conditions.');
+	if solverPars.logLevel > 1
+            fprintf('No growth conditions.');
+	end
         switch metabolicModel.FBAsolver
             case 1
                 flux = zeros(length(metabolicModel.CNAmodel.objFunc), 1);
@@ -149,7 +153,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
                         [flux, success, status] = CNAoptimizeFlux(metabolicModel.CNAmodel, metabolicModel.CNAconstraints);
                         if success == false
                             flux = zeros(length(metabolicModel.CNAmodel.objFunc), 1);
-                            disp('Whoa, solution in minimization did not work out. Setting to no growth conditions.')
+			    if solverPars.logLevel > 1
+                                fprintf('Whoa, solution in minimization did not work out. Setting to no growth conditions.')
+			    end
                         end
                         metabolicModel.CNAmodel.objFunc = currentObj;
                         metabolicModel.CNAconstraints = currentConstraints;
@@ -157,7 +163,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
                         solution = optimizeCbModel(metabolicModel.COBRAmodel, 'min', 0, 1);
                         if (solution.stat ~= 1)
                             flux = zeros(length(metabolicModel.COBRAmodel.c), 1);
-                            disp('Whoa, solution in minimization did not work out. Setting to no growth conditions.')
+			    if solverPars.logLevel > 1
+                                fprintf('Whoa, solution in minimization did not work out. Setting to no growth conditions.')
+			    end
                         else
                             flux = solution.x;
                         end
@@ -167,9 +175,13 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
             end
             my_diff = originalSum - sum(abs(flux));
             if my_diff > 0
-                fprintf('pFBA improvement (%f)\n', my_diff)
+		if solverPars.logLevel > 1
+                    fprintf('pFBA improvement (%f)\n', my_diff)
+		end
             else
-                fprintf('pFBA failure (%f)\n', my_diff)
+		if solverPars.logLevel > 1
+                    fprintf('pFBA failure (%f)\n', my_diff)
+		end
             end
             flux = validateFlux(flux, currentLB, currentUB);
         end
@@ -350,7 +362,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
             succeeding = 1;
             if (~mysuccess)
                 if metabolicModel.FBAsolver == 2
-                    disp('Minimization to previous flux did not work out. Relaxing restrictions ...')
+		    if solverPars.logLevel > 1
+                        fprintf('Minimization to previous flux did not work out. Relaxing restrictions ...')
+		    end
                 end
                 
                 tryValue = solverPars.minRelaxValue;
@@ -363,7 +377,9 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
                         myLB = metabolicModel.COBRAmodel.lb;
                 end
                 while (~mysuccess && tryValue < solverPars.maxRelaxValue && metabolicModel.FBAsolver == 2)
-                    fprintf('Trying %d\n', tryValue)
+		    if solverPars.logLevel > 1	
+                        fprintf('Trying %d\n', tryValue)
+		    end
                     for i = 1:numberOfReactions
                         if myLB(i) ~= myUB(i)
                             if myLB(i) == 0
@@ -395,10 +411,14 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
                     tryValue = tryValue * 10;
                 end
                 if ~mysuccess
-                    disp('Failing, using original flux.')
+		    if solverPars.logLevel > 1
+                        fprintf('Failing, using original flux.')
+		    end
                     succeeding = 0;
                 else
-                    disp('Success')
+		    if solverPars.logLevel > 1
+                        fprintf('Success')
+		    end
                 end
             end
 
@@ -414,9 +434,13 @@ function [ dbio, dcompound, flux, success, resultLimitingFluxes ] = getDy(metabo
                 
                 my_dev = originalDev - sum(abs(flux-metabolicModel.lastFlux));
                 if my_dev > 0
-                    fprintf('devPrevFlux improvement (%f)\n', my_dev)
+		    if solverPars.logLevel > 1	
+                        fprintf('devPrevFlux improvement (%f)\n', my_dev)
+		    end
                 else
-                    fprintf('devPrevFlux failure (%f)\n', my_dev)
+		    if solverPars.logLevel > 1	
+                        fprintf('devPrevFlux failure (%f)\n', my_dev)
+		    end
                 end
             end
             % restore original model
