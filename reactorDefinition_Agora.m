@@ -5,7 +5,7 @@ function [ reactor ] = reactorDefinition_Agora( numberOfSpecies, externalCompoun
 % define the reactor
     reactor.volume = 1.0;	% liter
 
-    reactor.flowRate = 1.0;	% liter/hour
+    reactor.flowRate = 0.0;	% liter/hour
 
     numberOfCompounds = size(externalCompounds, 1);
 

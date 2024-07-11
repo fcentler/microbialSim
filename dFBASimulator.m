@@ -490,20 +490,22 @@ if solverPars.doMassBalance == 1
     end
 end
 result.solverPars = solverPars;
-result.compoundNames = reactor.compounds;
-result.modelNames = {};
-for i = 1:length(metabolicModel)
-    if ischar(metabolicModel(i).modelName)
-        metabolicModel(i).modelName = cellstr(metabolicModel(i).modelName);
+if solverPars.solverType == 1
+    result.compoundNames = reactor.compounds;
+    result.modelNames = {};
+    for i = 1:length(metabolicModel)
+        if ischar(metabolicModel(i).modelName)
+            metabolicModel(i).modelName = cellstr(metabolicModel(i).modelName);
+        end
+        result.modelNames{i} = metabolicModel(i).modelName;
+        % add reaction names (only tested for COBRAToolbox); expecting all
+        % reversible reactions at end of reaction list!
+        if (solverPars.FBAsolver == 2)
+            result.FBA(i).fluxes = array2table(result.FBA(i).fluxes, "VariableNames", metabolicModel(i).COBRAmodel.rxns(1:(length(metabolicModel(i).COBRAmodel.rxns)-length(metabolicModel(i).reversibleReacIDs))));
+        end
     end
-    result.modelNames{i} = metabolicModel(i).modelName;
-    % add reaction names (only tested for COBRAToolbox); expecting all
-    % reversible reactions at end of reaction list!
-    if (solverPars.FBAsolver == 2)
-        result.FBA(i).fluxes = array2table(result.FBA(i).fluxes, "VariableNames", metabolicModel(i).COBRAmodel.rxns(1:(length(metabolicModel(i).COBRAmodel.rxns)-length(metabolicModel(i).reversibleReacIDs))));
-    end
+    result.modelNames = [result.modelNames{:}];
 end
-result.modelNames = [result.modelNames{:}];
 
 % compute final derivatives
 for i = 1:length(metabolicModel)

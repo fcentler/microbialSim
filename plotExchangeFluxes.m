@@ -23,7 +23,7 @@ function [ f ] = plotExchangeFluxes(trajectory)
 
         counter = 1; finalIds = -1; myLegend = {};
         for j = 1:length(ids)
-            if sum(abs(table2array(trajectory.FBA(i).fluxes{:,ids(j)}))) ~= 0.0
+            if sum(abs(trajectory.FBA(i).fluxes{:,ids(j)})) ~= 0.0
                 finalIds(counter) = ids(j);
                 myLegend(counter) = trajectory.FBA(i).coupledReactions{int2str(finalIds(counter)), 'ReacName'};
                 myLegend(counter) = cellstr(strjoin([myLegend(counter) 'Sns' int2str(trajectory.FBA(i).coupledReactions{int2str(finalIds(counter)), 'SecretionSense'})]));
@@ -32,7 +32,7 @@ function [ f ] = plotExchangeFluxes(trajectory)
         end
         
         if finalIds(1) ~= -1
-            plot(time, table2array(trajectory.FBA(i).fluxes{:,finalIds}))
+            plot(time, trajectory.FBA(i).fluxes{:,finalIds})
 
             xlabel('Time (hours)')
             ylabel('Flux (mmol/gDW/h)')
@@ -47,7 +47,7 @@ function [ f ] = plotExchangeFluxes(trajectory)
 
         counter = 1; finalIds = -1; myLegend = {};
         for j = 1:length(ids)
-            if sum(abs(table2array(trajectory.FBA(i).fluxes{:,ids(j)}))) ~= 0.0
+            if sum(abs(trajectory.FBA(i).fluxes{:,ids(j)})) ~= 0.0
                 finalIds(counter) = ids(j);
                 myLegend(counter) = trajectory.FBA(i).exchangeReactions{int2str(finalIds(counter)), 'ReacName'};
                 myLegend(counter) = cellstr(strjoin([myLegend(counter) 'Sns' int2str(trajectory.FBA(i).exchangeReactions{int2str(finalIds(counter)), 'SecretionSense'})]));
@@ -56,7 +56,7 @@ function [ f ] = plotExchangeFluxes(trajectory)
         end
         
         if finalIds(1) ~= -1
-            plot(time, table2array(trajectory.FBA(i).fluxes{:,finalIds}))
+            plot(time, trajectory.FBA(i).fluxes{:,finalIds})
             xlabel('Time (hours)')
             ylabel('Flux (mmol/gDW/h)')
             title({char(trajectory.modelNames(i)), 'Uncoupled (non-zero) exchange fluxes'}, 'Interpreter', 'none')

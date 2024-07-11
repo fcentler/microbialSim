@@ -186,26 +186,19 @@ switch scenarioID
         
         reactor = reactorDefinition_synProp;
     case 3 % 773 gut microbiome
-        solverPars.tend = 0.1;
+        solverPars.tend = 1.0;
         solverPars.timeStepSize = 0.02;
 		% Using AGORA1 models
 		solverPars.agoraVersion = 1;
 		solverPars.modelDir = 'models/AGORA-1.01-Western-Diet/';
+        solverPars.diet = '';
         % consider all species
-        %speciesToConsider = 1:773;
+        speciesToConsider = 1:773;
 
         % consider only selected species
         %speciesToConsider = [1, 2, 3];
 		%speciesToConsider = ["Abiotrophia_defectiva_ATCC_49176.xml", "Acidaminococcus_fermentans_DSM_20731.xml", "Acidaminococcus_intestini_RyC_MR95.xml"];
         
-		speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482];
-		
-		% Using AGORA2 models
-		%solverPars.agoraVersion = 2;
-		%solverPars.modelDir = 'models/AGORA-2.01-models/';
-		%speciesToConsider = [1, 2, 3];
-		%speciesToConsider = ["Abiotrophia_defectiva_ATCC_49176.xml", "Acaricomes_phytoseiuli_DSM_14247.xml", "Acaryochloris_marina_MBIC11017.xml"];
-		%solverPars.diet = 'models/diets/Mediterranean/fluxes.tsv';
         [models, externalCompounds] = prepareFBAmodel_Agora(solverPars.agoraVersion, speciesToConsider, solverPars.modelDir, solverPars.FBAsolver);
         %solverPars.saveLoadedModelsToFile = 1; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
         %load('./loadedModels_26-Mar-2019 11_34_00.mat');
@@ -225,20 +218,25 @@ switch scenarioID
 
         reactor = reactorDefinition_Agora(length(models), externalCompounds, solverPars.diet);
 
- case 4 % 9 species gut microbiome
-        solverPars.tend = 120.0;
+ case 4 % 8 species gut microbiome
+        solverPars.tend = 0.1;
         solverPars.timeStepSize = 0.02;
+		% Using AGORA1 models
 		solverPars.agoraVersion = 1;
 		solverPars.modelDir = 'models/AGORA-1.01-Western-Diet/';
 		solverPars.diet = '';
-        % consider all species
-        %speciesToConsider = 1:773;
-        % consider only selected species
-        %speciesToConsider = [1, 2, 3];
-        speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482, 256];
-        
-        %[models, externalCompounds] = prepareFBAmodel_773Agora(speciesToConsider, 'models/AGORA-1.01-Western-Diet/', solverPars.FBAsolver);
-        %solverPars.saveLoadedModelsToFile = 0; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
+        % consider only selected species (SIHUMIx)
+        speciesToConsider = [46, 125, 164, 178, 245, 270, 362, 482];
+
+   		% Using AGORA2 models
+		%solverPars.agoraVersion = 2;
+		%solverPars.modelDir = 'models/AGORA-2.01-models/';
+		%speciesToConsider = [1, 2, 3];
+		%speciesToConsider = ["Abiotrophia_defectiva_ATCC_49176.xml", "Acaricomes_phytoseiuli_DSM_14247.xml", "Acaryochloris_marina_MBIC11017.xml"];
+		%solverPars.diet = 'models/diets/Mediterranean/fluxes.tsv';
+
+        [models, externalCompounds] = prepareFBAmodel_Agora(solverPars.agoraVersion, speciesToConsider, solverPars.modelDir, solverPars.FBAsolver);
+        solverPars.saveLoadedModelsToFile = 0; % look for "loadedModels_*.mat" in current directory, can be used in subsequent runs for speed-up (see next line)
         %load('./loadedModels_27-Apr-2022 14_06_59.mat');
         solverPars.readInitialStateFrom = '';
         solverPars.parallel = 0;

@@ -112,6 +112,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Version History
 
+* v1.2.1 - July 2024 - minor bug fixes
 * v1.2.0 - March 2024 - support for loading AGORA2 models, simulation parameters can now alternatively be set in an external YAML file, substrate concentration in inflow for chemostat simulations can be defined by external file, simplified trajectory files, support for numerical solvers Gurobi and CPLEX added, improved flexibility when restarting simulations, introduction of log levels 
 * v1.1.1 - April 2020 - new plot routine for visualizing the most abundant microbial species and compounds only, new parameter for the numerical solver, minor bugfixes
 * v1.1.0 - January 2020 - improved parallel performance, new function to estimate maximal uptake flux required to achieve given specific growth rate, new functions to collect, filter, and write compound exchange within the community at a given simulation time point, new feature to record growth-limiting compounds for each species during the simulation, bugfixes

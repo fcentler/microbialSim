@@ -26,10 +26,10 @@ for i = 1:length(trajectory.modelNames)
     end
 end
 
-%% set up exchange matrix, entries have unit mM/h/L, negative values indicate uptake
+%% set up exchange matrix, entries have unit mmol/h/L, negative values indicate uptake
 exchangeMatrix = zeros(length(trajectory.compoundNames), length(trajectory.modelNames));
 for i = 1:length(trajectory.modelNames)
-    exchangeMatrix(:, i) = mapExchangeToReactorCompounds(getFluxes(trajectory.FBA(i).fluxes(index, :), trajectory.FBA(i).coupledReactions.ReacID) * trajectory.biomass(index, i) .* transpose(trajectory.FBA(i).coupledReactions.SecretionSense), trajectory.FBA(i).reactorCompoundIDs, length(trajectory.compoundNames));
+    exchangeMatrix(:, i) = mapExchangeToReactorCompounds(getFluxes(table2array(trajectory.FBA(i).fluxes(index, :)), trajectory.FBA(i).coupledReactions.ReacID) * trajectory.biomass(index, i) .* transpose(trajectory.FBA(i).coupledReactions.SecretionSense), trajectory.FBA(i).reactorCompoundIDs, length(trajectory.compoundNames));
 end
 
 %% prepare exchange table
